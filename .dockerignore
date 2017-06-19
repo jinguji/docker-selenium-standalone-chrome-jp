@@ -1,0 +1,8 @@
+.circleci
+.dockerignore
+example
+get_versions.sh
+.git
+hooks
+README.md
+VERSIONS

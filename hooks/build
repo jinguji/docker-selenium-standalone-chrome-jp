@@ -1,0 +1,10 @@
+#!/bin/bash
+
+source "$(dirname "$0")"/../VERSIONS
+
+docker build -t "$IMAGE_NAME" . \
+  --build-arg java_version="$JAVA_VERSION" \
+  --build-arg selenium_version="$SELENIUM_VERSION" \
+  --build-arg selenium_version_short="${SELENIUM_VERSION:0:3}" \
+  --build-arg driver_version="$DRIVER_VERSION" \
+  --build-arg chrome_version="$CHROME_VERSION"
