@@ -30,6 +30,6 @@ docker run --rm -p 4444:4444 jinguji/selenium-standalone-chrome-jp
     --build-arg java_version=8 \
     --build-arg selenium_version=3.4.0 \
     --build-arg selenium_version_short=3.4 \
-    --build-arg driver_version=2.29
+    --build-arg driver_version=2.29 \
     --build-arg chrome_version=59.0.3071.104-1
   ```
