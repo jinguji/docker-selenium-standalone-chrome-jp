@@ -1,0 +1,135 @@
+# requirements:
+#  - ENV on CircleCI
+#    - GITHUB_TOKEN
+#    - GIT_EMAIL
+#    - GIT_USER
+#  - R/W deploy key
+
+---
+version: 2
+
+jobs:
+  test:
+    docker:
+      - image: docker:17.11.0-ce-git
+    working_directory: &working_directory ~/selenium-standalone-chrome-jp
+    environment:
+      TZ: &time_zone /usr/share/zoneinfo/Asia/Tokyo
+    steps:
+      - checkout
+      - setup_remote_docker
+      - run:
+          name: Test to build image from Dockerfile
+          command: |
+            apk update
+            apk add bash
+            IMAGE_NAME="build-test" ./hooks/build
+
+  check-update:
+    docker:
+      - image: alpine
+    working_directory: *working_directory
+    environment:
+      TZ: *time_zone
+    steps:
+      - run:
+          name: Install dependencies
+          command: apk --update add git bash curl openssh libc6-compat tzdata
+      - checkout
+      - add_ssh_keys
+      - run:
+          name: Check if there is a pull-request created by bot
+          shell: /bin/bash
+          command: |
+            url="https://api.github.com/repos/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}/pulls&state=open"
+            if curl "$url" | grep "$GIT_USER" > /dev/null ; then
+              echo "PR by bot does exist."
+              exit 0
+            fi
+            echo "PR by bot does not exist."
+            echo 'pr_does_not_exists="true"' >> "$BASH_ENV"
+      - run:
+          name: Get latest version of components
+          shell: /bin/bash
+          command: |
+            if [ -z "$pr_does_not_exists" ] ; then
+              echo "Skipped."
+              exit 0
+            fi
+            ./get_versions.sh
+            if [ "$(git --no-pager diff)" ] ; then
+              echo "New version detected."
+              echo 'update_exists="true"' >> "$BASH_ENV"
+            else
+              echo "No new version was detected."
+            fi
+      - run:
+          name: Create pull-request
+          shell: /bin/bash
+          command: |
+            if [ -z "$pr_does_not_exists" ] || [ -z "$update_exists" ] ; then
+              echo "Skipped."
+              exit 0
+            fi
+            # preparation
+            branch="update-$(date +"%Y%m%d")"
+            message="Update to latest version of $(date +"%Y%m%d")"
+            git config user.name "$GIT_USER"
+            git config user.email "$GIT_EMAIL"
+            # commit
+            git checkout -b "$branch"
+            git add VERSIONS
+            git commit -m "$message"
+            git push origin "$branch"
+            # create pull-request
+            curl -L -O https://github.com/github/hub/releases/download/v2.3.0-pre10/hub-linux-amd64-2.3.0-pre10.tgz
+            tar zxvf hub*.tgz
+            hub*/bin/hub pull-request -m "$message"
+
+  # Require R/W deploy key for tag addition
+  # https://circleci.com/docs/1.0/adding-read-write-deployment-key/
+  add-tag:
+    docker:
+      - image: alpine
+    working_directory: *working_directory
+    environment:
+      TZ: *time_zone
+    steps:
+      - run:
+          name: Install dependencies
+          command: apk --update add git openssh tzdata
+      - checkout
+      - add_ssh_keys
+      - run:
+          name: Add tag
+          command: |
+            tag="$(date +"%Y%m%d")"
+            if git tag | grep -q "$tag" ; then
+              git push --delete origin "$tag"
+            fi
+            git tag -f "$tag"
+            git push --tag
+
+workflows:
+  version: 2
+  test:
+    jobs:
+      - test:
+          filters:
+            branches:
+              ignore: master
+  add-tag:
+    jobs:
+      - add-tag:
+          filters:
+            branches:
+              only: master
+  weekly:
+    triggers:
+      - schedule:
+          cron: '0 0 * * 0'
+          filters:
+            branches:
+              only: master
+    jobs:
+      - check-update
