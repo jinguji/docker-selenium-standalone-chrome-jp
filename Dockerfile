@@ -5,9 +5,10 @@ MAINTAINER jinguji
 ARG java_version
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-      wget \
-      unzip \
+      gnupg \
       "openjdk-${java_version}-jre-headless" \
+      unzip \
+      wget \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /var/cache/apt/*
 
