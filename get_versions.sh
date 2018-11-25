@@ -33,10 +33,9 @@ is_valid "$DRIVER_VERSION"
 
 echo 'Get Chrome version'
 CHROME_VERSION="$(
-  curl https://www.ubuntuupdates.org/package/google_chrome/stable/main/base/google-chrome-stable \
-    | grep Version: \
-    | head -n 1 \
-    | sed -e 's/.*>//'
+  curl http://dl.google.com/linux/chrome/deb/dists/stable/main/binary-amd64/Packages \
+    | sed -n '/Package: google-chrome-stable/{n;p;}' \
+    | sed -r 's/Version: (.+)/\1/'
 )"
 is_valid "$CHROME_VERSION"
 
